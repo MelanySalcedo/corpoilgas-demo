@@ -43,6 +43,10 @@ const state = {
   authView: "login",
   activeTab: "home",
   selectedProductId: "p20",
+  cart: { p20: 0, p30: 0 },
+  coupon: "",
+  couponApplied: false,
+  rating: 0,
   subscriptionEnabled: false,
   address: mockData.addresses[0],
   paymentMethod: "card",
@@ -61,6 +65,13 @@ let map = null, agentMarker = null;
 
 const mxn = (n) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 function prod() { return mockData.products.find((p) => p.id === state.selectedProductId); }
+function cartTotal() {
+  let t = 0;
+  mockData.products.forEach((p) => { t += (state.cart[p.id] || 0) * p.price; });
+  return t;
+}
+function cartCount() { return Object.values(state.cart).reduce((a, b) => a + b, 0); }
+function cartDiscount() { return state.couponApplied ? Math.round(cartTotal() * 0.1) : 0; }
 function clearTimer() { if (state.trackingTimer) { clearInterval(state.trackingTimer); state.trackingTimer = null; } }
 function destroyMap() { if (map) { map.remove(); map = null; agentMarker = null; } }
 
@@ -117,14 +128,21 @@ function renderSelection() {
   if (nav) nav.style.display = "";
 
   const options = mockData.products.map((p) => `
-    <article class="card option-card ${state.selectedProductId === p.id ? "selected" : ""}"
-      data-action="pick-product" data-id="${p.id}">
-      <div>
+    <article class="card product-row">
+      <div class="product-row-info">
         <h3 class="option-title">${p.name}</h3>
         <p class="option-copy">${p.copy}</p>
+        <span class="price">${mxn(p.price)}</span>
       </div>
-      <span class="price">${mxn(p.price)}</span>
+      <div class="qty-control">
+        <button class="qty-btn" data-action="cart-minus" data-id="${p.id}">−</button>
+        <span class="qty-value">${state.cart[p.id] || 0}</span>
+        <button class="qty-btn" data-action="cart-plus" data-id="${p.id}">+</button>
+      </div>
     </article>`).join("");
+
+  const count = cartCount();
+  const total = cartTotal();
 
   app.innerHTML = `
     <section>
@@ -135,8 +153,9 @@ function renderSelection() {
           <p>Entrega segura a domicilio</p>
         </div>
       </div>
+      <div class="eta-badge">🕐 Entrega estimada: 20–35 min</div>
       <h2 class="screen-title">Pide tu gas</h2>
-      <p class="screen-subtitle">Selecciona tu pipeta y confirma tu entrega.</p>
+      <p class="screen-subtitle">Selecciona cantidad y confirma tu entrega.</p>
       ${options}
       <div class="subscription">
         <div>
@@ -146,49 +165,76 @@ function renderSelection() {
         <button data-action="toggle-subscription">${state.subscriptionEnabled ? "✓ Activa" : "Activar"}</button>
       </div>
       <div style="height: 12px"></div>
-      <button class="btn btn-primary" data-action="go-checkout">Continuar al checkout</button>
+      ${count > 0 ? `
+        <div class="cart-summary">
+          <span>🛒 ${count} producto${count > 1 ? "s" : ""}</span>
+          <span class="price">${mxn(total)}</span>
+        </div>
+        <button class="btn btn-primary" data-action="go-checkout">Ir al checkout · ${mxn(total)}</button>
+      ` : `<button class="btn btn-primary" disabled style="opacity:.4">Agrega productos al carrito</button>`}
     </section>`;
 }
 
 function renderCheckout() {
-  const p = prod();
+  const total = cartTotal();
+  const disc = cartDiscount();
+  const items = mockData.products.filter((p) => state.cart[p.id] > 0);
+
   app.innerHTML = `
     <section>
       <h2 class="screen-title">Checkout</h2>
-      <p class="screen-subtitle">Dirección de entrega y forma de pago.</p>
+      <p class="screen-subtitle">Revisa tu pedido antes de pagar.</p>
+
       <div class="card">
-        <strong>Tu pedido</strong>
-        <p class="option-copy">${p.name}</p>
-        <p class="price">${mxn(p.price)}</p>
+        <strong>Tu carrito</strong>
+        ${items.map((p) => `
+          <div class="checkout-line">
+            <span>${state.cart[p.id]}× ${p.name}</span>
+            <span>${mxn(p.price * state.cart[p.id])}</span>
+          </div>`).join("")}
       </div>
+
+      <div class="coupon-row">
+        <input class="input coupon-input" id="couponInput" placeholder="Código de cupón" value="${state.coupon}" />
+        <button class="btn-coupon" data-action="apply-coupon">${state.couponApplied ? "✓" : "Aplicar"}</button>
+      </div>
+      ${state.couponApplied ? '<p class="coupon-msg">🎉 Cupón GASYA10 aplicado · -10%</p>' : ""}
+
       <label>Dirección</label>
       <input class="input" id="addressInput" value="${state.address}" />
+
       <label>Método de pago</label>
       <div class="pay-methods">
         <label class="pay-method ${state.paymentMethod === "card" ? "active" : ""}">
           <input type="radio" name="pay" value="card" ${state.paymentMethod === "card" ? "checked" : ""} />
-          <span class="pay-icon">💳</span>
-          <span>Tarjeta</span>
+          <span class="pay-icon">💳</span><span>Tarjeta</span>
         </label>
         <label class="pay-method ${state.paymentMethod === "oxxo" ? "active" : ""}">
           <input type="radio" name="pay" value="oxxo" ${state.paymentMethod === "oxxo" ? "checked" : ""} />
-          <span class="pay-icon">🏪</span>
-          <span>OXXO Pay</span>
+          <span class="pay-icon">🏪</span><span>OXXO Pay</span>
         </label>
         <label class="pay-method ${state.paymentMethod === "spei" ? "active" : ""}">
           <input type="radio" name="pay" value="spei" ${state.paymentMethod === "spei" ? "checked" : ""} />
-          <span class="pay-icon">🏦</span>
-          <span>SPEI</span>
+          <span class="pay-icon">🏦</span><span>SPEI</span>
         </label>
       </div>
-      <button class="btn btn-primary" data-action="go-payment">Ir a pagar · ${mxn(p.price)}</button>
+
+      <div class="pay-summary">
+        <div class="pay-summary-row"><span>Subtotal</span><span>${mxn(total)}</span></div>
+        ${disc > 0 ? `<div class="pay-summary-row"><span>Cupón -10%</span><span class="free-tag">-${mxn(disc)}</span></div>` : ""}
+        <div class="pay-summary-row"><span>Envío</span><span class="free-tag">Gratis</span></div>
+        <div class="pay-summary-row total"><span>Total</span><span>${mxn(total - disc)}</span></div>
+      </div>
+
+      <button class="btn btn-primary" data-action="go-payment">Ir a pagar · ${mxn(total - disc)}</button>
       <div style="height: 8px"></div>
       <button class="btn btn-secondary" data-action="back-selection">Volver</button>
     </section>`;
 }
 
 function renderPayment() {
-  const p = prod();
+  const total = cartTotal() - cartDiscount();
+  const items = mockData.products.filter((p) => state.cart[p.id] > 0);
   const method = state.paymentMethod;
 
   let formHtml = "";
@@ -199,14 +245,8 @@ function renderPayment() {
         <label>Número de tarjeta</label>
         <input class="input" placeholder="4242 4242 4242 4242" maxlength="19" />
         <div class="input-row">
-          <div class="input-half">
-            <label>Vencimiento</label>
-            <input class="input" placeholder="MM/AA" maxlength="5" />
-          </div>
-          <div class="input-half">
-            <label>CVV</label>
-            <input class="input" placeholder="123" maxlength="4" type="password" />
-          </div>
+          <div class="input-half"><label>Vencimiento</label><input class="input" placeholder="MM/AA" maxlength="5" /></div>
+          <div class="input-half"><label>CVV</label><input class="input" placeholder="123" maxlength="4" type="password" /></div>
         </div>
         <label>Nombre en la tarjeta</label>
         <input class="input" placeholder="Como aparece en la tarjeta" />
@@ -220,7 +260,7 @@ function renderPayment() {
           <div class="voucher-code">0836 4921 7750 2284</div>
           <div class="voucher-barcode">||||| |||| ||||| |||| ||||| ||||</div>
           <p class="voucher-instructions">Presenta esta referencia en cualquier OXXO.<br>Tienes <strong>24 horas</strong> para completar el pago.</p>
-          <p class="voucher-amount">Monto a pagar: <strong>${mxn(p.price)}</strong></p>
+          <p class="voucher-amount">Monto: <strong>${mxn(total)}</strong></p>
         </div>
       </div>`;
   } else {
@@ -232,9 +272,8 @@ function renderPayment() {
           <div class="spei-row"><span>Banco destino</span><strong>STP</strong></div>
           <div class="spei-row"><span>CLABE</span><strong>6461 8010 0712 3456 78</strong></div>
           <div class="spei-row"><span>Beneficiario</span><strong>Corpoilgas SA de CV</strong></div>
-          <div class="spei-row"><span>Concepto</span><strong>Pedido #4821</strong></div>
-          <div class="spei-row"><span>Monto</span><strong>${mxn(p.price)}</strong></div>
-          <p class="voucher-instructions">Realiza la transferencia desde tu banca en línea.<br>El pago se confirma en <strong>minutos</strong>.</p>
+          <div class="spei-row"><span>Monto</span><strong>${mxn(total)}</strong></div>
+          <p class="voucher-instructions">Realiza la transferencia desde tu banca en línea.</p>
         </div>
       </div>`;
   }
@@ -243,25 +282,15 @@ function renderPayment() {
     <section>
       <h2 class="screen-title">Pasarela de pago</h2>
       <p class="screen-subtitle">Completa tu pago de forma segura.</p>
-
       <div class="pay-summary">
-        <div class="pay-summary-row">
-          <span>${p.name}</span><span>${mxn(p.price)}</span>
-        </div>
-        <div class="pay-summary-row">
-          <span>Envío</span><span class="free-tag">Gratis</span>
-        </div>
-        <div class="pay-summary-row total">
-          <span>Total</span><span>${mxn(p.price)}</span>
-        </div>
+        ${items.map((p) => `<div class="pay-summary-row"><span>${state.cart[p.id]}× ${p.name}</span><span>${mxn(p.price * state.cart[p.id])}</span></div>`).join("")}
+        ${cartDiscount() > 0 ? `<div class="pay-summary-row"><span>Descuento</span><span class="free-tag">-${mxn(cartDiscount())}</span></div>` : ""}
+        <div class="pay-summary-row"><span>Envío</span><span class="free-tag">Gratis</span></div>
+        <div class="pay-summary-row total"><span>Total</span><span>${mxn(total)}</span></div>
       </div>
-
       ${formHtml}
-
       <div class="pay-secure">🔒 Pago seguro · Datos encriptados</div>
-      <button class="btn btn-primary" data-action="confirm-payment">
-        ${method === "card" ? "Pagar " + mxn(p.price) : "Confirmar pedido"}
-      </button>
+      <button class="btn btn-primary" data-action="confirm-payment">${method === "card" ? "Pagar " + mxn(total) : "Confirmar pedido"}</button>
       <div style="height: 8px"></div>
       <button class="btn btn-secondary" data-action="back-checkout">Cambiar método</button>
     </section>`;
@@ -274,7 +303,27 @@ function renderProcessing() {
       <h2>Procesando pago...</h2>
       <p class="screen-subtitle">No cierres esta ventana</p>
     </section>`;
-  setTimeout(() => { state.screen = "tracking"; state.statusIndex = 0; render(); }, 2200);
+  setTimeout(() => { state.screen = "confirmed"; render(); }, 2200);
+}
+
+function renderConfirmed() {
+  const total = cartTotal() - cartDiscount();
+  const items = mockData.products.filter((p) => state.cart[p.id] > 0);
+  app.innerHTML = `
+    <section class="confirmed-screen">
+      <div class="confirmed-icon">🎉</div>
+      <h2>¡Pedido confirmado!</h2>
+      <p class="screen-subtitle">Tu pedido #4821 fue recibido</p>
+      <div class="confirmed-card">
+        ${items.map((p) => `<div class="confirmed-line"><span>${state.cart[p.id]}× ${p.name}</span><span>${mxn(p.price * state.cart[p.id])}</span></div>`).join("")}
+        <div class="confirmed-line total"><span>Total pagado</span><span>${mxn(total)}</span></div>
+      </div>
+      <div class="confirmed-info">
+        <div>📍 ${state.address}</div>
+        <div>🕐 Entrega estimada: 20–35 min</div>
+      </div>
+      <button class="btn btn-primary" data-action="go-tracking">Seguir mi pedido</button>
+    </section>`;
 }
 
 function renderTracking() {
@@ -309,19 +358,30 @@ function renderTracking() {
           </div>
           <button class="agent-call-btn">📞</button>
         </div>
+        <button class="btn btn-secondary btn-sm" data-action="support">💬 ¿Necesitas ayuda?</button>
       </div>
     </section>`;
   initTrackingMap();
 }
 
 function renderSuccess() {
-  const p = prod();
+  const total = cartTotal() - cartDiscount();
+  const agent = mockData.deliveryAgent;
   app.innerHTML = `
     <section class="success">
       <div style="font-size: 48px;">✅</div>
       <h2>¡Entrega confirmada!</h2>
-      <p class="screen-subtitle">Tu ${p.name} fue entregada con éxito.</p>
-      <p><strong>Total:</strong> ${mxn(p.price)}</p>
+      <p class="screen-subtitle">Tu pedido fue entregado con éxito</p>
+      <p><strong>Total:</strong> ${mxn(total)}</p>
+
+      <div class="rating-section">
+        <p class="rating-label">¿Cómo fue tu experiencia con ${agent.name}?</p>
+        <div class="stars">
+          ${[1,2,3,4,5].map((n) => `<span class="star ${n <= state.rating ? "active" : ""}" data-action="rate" data-val="${n}">★</span>`).join("")}
+        </div>
+        ${state.rating > 0 ? `<p class="rating-thanks">¡Gracias por calificar con ${state.rating} estrella${state.rating > 1 ? "s" : ""}!</p>` : ""}
+      </div>
+
       <button class="btn btn-primary" data-action="restart">Nuevo pedido</button>
     </section>`;
 }
@@ -434,7 +494,7 @@ function renderProfile() {
 
 function render() {
   destroyMap();
-  const screens = { login: renderLogin, selection: renderSelection, orders: renderOrders, profile: renderProfile, checkout: renderCheckout, payment: renderPayment, processing: renderProcessing, tracking: renderTracking, success: renderSuccess };
+  const screens = { login: renderLogin, selection: renderSelection, orders: renderOrders, profile: renderProfile, checkout: renderCheckout, payment: renderPayment, processing: renderProcessing, confirmed: renderConfirmed, tracking: renderTracking, success: renderSuccess };
   (screens[state.screen] || renderSelection)();
 }
 
@@ -486,10 +546,17 @@ document.addEventListener("click", (e) => {
   if (a === "do-login") { state.screen = "selection"; state.activeTab = "home"; updateNav(); render(); }
   if (a === "go-login") { state.authView = "login"; render(); }
   if (a === "go-register") { state.authView = "register"; render(); }
-  if (a === "pick-product") { state.selectedProductId = t.dataset.id; render(); }
+  if (a === "cart-plus") { state.cart[t.dataset.id] = (state.cart[t.dataset.id] || 0) + 1; render(); }
+  if (a === "cart-minus") { if (state.cart[t.dataset.id] > 0) state.cart[t.dataset.id]--; render(); }
   if (a === "toggle-subscription") { state.subscriptionEnabled = !state.subscriptionEnabled; render(); }
   if (a === "go-checkout") { state.screen = "checkout"; render(); }
   if (a === "back-selection") { state.screen = "selection"; render(); }
+  if (a === "apply-coupon") {
+    const v = document.getElementById("couponInput")?.value.trim();
+    state.coupon = v;
+    state.couponApplied = v.length > 0;
+    render();
+  }
   if (a === "go-payment") {
     state.address = document.getElementById("addressInput").value;
     state.paymentMethod = document.querySelector('input[name="pay"]:checked')?.value || "card";
@@ -498,12 +565,12 @@ document.addEventListener("click", (e) => {
   }
   if (a === "back-checkout") { state.screen = "checkout"; render(); }
   if (a === "confirm-payment") { state.screen = "processing"; render(); }
-  if (a === "restart") { clearTimer(); state.screen = "selection"; state.statusIndex = 0; state.activeTab = "home"; updateNav(); render(); }
-  if (a === "reorder") { state.selectedProductId = t.dataset.id; state.screen = "checkout"; state.activeTab = "home"; updateNav(); render(); }
-  if (a === "toggle-detail") {
-    const detail = document.getElementById("detail-" + t.dataset.idx);
-    if (detail) detail.classList.toggle("open");
-  }
+  if (a === "go-tracking") { state.screen = "tracking"; state.statusIndex = 0; render(); }
+  if (a === "support") { alert("Soporte Corpoilgas\n📞 55 1234 5678\n💬 Chat disponible 8am–10pm"); }
+  if (a === "rate") { state.rating = parseInt(t.dataset.val); render(); }
+  if (a === "restart") { clearTimer(); state.screen = "selection"; state.statusIndex = 0; state.cart = { p20: 0, p30: 0 }; state.coupon = ""; state.couponApplied = false; state.rating = 0; state.activeTab = "home"; updateNav(); render(); }
+  if (a === "reorder") { state.cart = { p20: 0, p30: 0 }; state.cart[t.dataset.id] = 1; state.screen = "checkout"; state.activeTab = "home"; updateNav(); render(); }
+  if (a === "toggle-detail") { const d = document.getElementById("detail-" + t.dataset.idx); if (d) d.classList.toggle("open"); }
   if (a === "logout") { state.screen = "login"; state.authView = "login"; render(); }
 });
 
