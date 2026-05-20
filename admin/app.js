@@ -150,6 +150,11 @@ const state = {
   showFilters: false,
   filterDriver: "",
   filterPay: "",
+  sidebarOpen: true,
+  flotillaOpen: false,
+  clientesOpen: false,
+  metricasOpen: false,
+  ticketsOpen: false,
 };
 
 const app = document.getElementById("app");
@@ -244,20 +249,52 @@ function renderDashboard() {
 
   app.innerHTML = `
     <div class="shell">
-      <aside class="sidebar">
-        <div class="sidebar-header">
+      <div class="top-header">
+        <div class="top-header-left">
           <img src="../assets/Logo.png" alt="Corpoilgas" />
           <span class="badge-demo">ADMIN</span>
         </div>
-        <div class="sidebar-section-label">Pedidos</div>
-        <div class="sidebar-categories">
-          ${categories.map(c => `
-            <div class="cat-item ${state.category === c.key ? "active" : ""} ${c.highlight ? "highlight" : ""}" data-action="category" data-key="${c.key}">
-              <span class="cat-icon">${c.icon}</span>
-              <span>${c.label}</span>
-              ${counts[c.key] ? `<span class="cat-count">${counts[c.key]}</span>` : ""}
-            </div>
-          `).join("")}
+        <div class="top-header-right"></div>
+      </div>
+      <div class="shell-body">
+      <aside class="sidebar">
+        <div class="sidebar-sections">
+          <div class="sidebar-section-label" data-action="toggle-sidebar">${state.sidebarOpen ? "▾" : "▸"} Pedidos</div>
+          <div class="sidebar-categories" style="${state.sidebarOpen ? "" : "display:none"}">
+            ${categories.map(c => `
+              <div class="cat-item ${state.category === c.key ? "active" : ""} ${c.highlight ? "highlight" : ""}" data-action="category" data-key="${c.key}">
+                <span class="cat-icon">${c.icon}</span>
+                <span>${c.label}</span>
+                ${counts[c.key] ? `<span class="cat-count">${counts[c.key]}</span>` : ""}
+              </div>
+            `).join("")}
+          </div>
+          <div class="sidebar-section-label" data-action="toggle-flotilla">${state.flotillaOpen ? "▾" : "▸"} Flotilla</div>
+          <div class="sidebar-categories" style="${state.flotillaOpen ? "" : "display:none"}">
+            <div class="cat-item"><span class="cat-icon">🚛</span><span>Camiones activos</span></div>
+            <div class="cat-item"><span class="cat-icon">👷</span><span>Conductores</span></div>
+            <div class="cat-item"><span class="cat-icon">🔧</span><span>Mantenimiento</span></div>
+          </div>
+          <div class="sidebar-section-label" data-action="toggle-clientes">${state.clientesOpen ? "▾" : "▸"} Clientes</div>
+          <div class="sidebar-categories" style="${state.clientesOpen ? "" : "display:none"}">
+            <div class="cat-item"><span class="cat-icon">👥</span><span>Todos</span></div>
+            <div class="cat-item"><span class="cat-icon">🏢</span><span>Empresariales</span></div>
+            <div class="cat-item"><span class="cat-icon">🏠</span><span>Residenciales</span></div>
+            <div class="cat-item"><span class="cat-icon">📄</span><span>Convenios</span></div>
+          </div>
+          <div class="sidebar-section-label" data-action="toggle-metricas">${state.metricasOpen ? "▾" : "▸"} Métricas</div>
+          <div class="sidebar-categories" style="${state.metricasOpen ? "" : "display:none"}">
+            <div class="cat-item"><span class="cat-icon">📊</span><span>Ventas del día</span></div>
+            <div class="cat-item"><span class="cat-icon">📈</span><span>Litros despachados</span></div>
+            <div class="cat-item"><span class="cat-icon">💰</span><span>Ingresos</span></div>
+            <div class="cat-item"><span class="cat-icon">⭐</span><span>Calificaciones</span></div>
+          </div>
+          <div class="sidebar-section-label" data-action="toggle-tickets">${state.ticketsOpen ? "▾" : "▸"} Tickets</div>
+          <div class="sidebar-categories" style="${state.ticketsOpen ? "" : "display:none"}">
+            <div class="cat-item"><span class="cat-icon">🎫</span><span>Abiertos</span></div>
+            <div class="cat-item"><span class="cat-icon">⏳</span><span>En proceso</span></div>
+            <div class="cat-item"><span class="cat-icon">✅</span><span>Resueltos</span></div>
+          </div>
         </div>
         <div class="sidebar-footer">
           <div class="user-info" data-action="logout">
@@ -268,47 +305,51 @@ function renderDashboard() {
       </aside>
 
       <div class="main">
-        <div class="toolbar">
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input placeholder="Buscar pedido, cliente..." value="${state.searchQuery}" data-action="search" />
-          </div>
-          <div class="toolbar-sep"></div>
-          <div class="sort-group">
-            <button class="toolbar-btn ${state.sortBy === "date_desc" ? "active" : ""}" data-action="sort" data-sort="date_desc"><span class="icon">🕐</span> Recientes</button>
-            <button class="toolbar-btn ${state.sortBy === "date_asc" ? "active" : ""}" data-action="sort" data-sort="date_asc"><span class="icon">📅</span> Antiguos</button>
-            <button class="toolbar-btn ${state.sortBy === "amount_desc" ? "active" : ""}" data-action="sort" data-sort="amount_desc"><span class="icon">💰</span> Monto</button>
-            <button class="toolbar-btn ${state.sortBy === "client" ? "active" : ""}" data-action="sort" data-sort="client"><span class="icon">👤</span> Cliente</button>
-          </div>
-          <div class="toolbar-sep"></div>
-          <div class="filter-wrap">
-            <button class="toolbar-btn ${state.showFilters ? "active" : ""}" data-action="toggle-filters"><span class="icon">⚙️</span> Filtros</button>
-            <div class="filter-dropdown ${state.showFilters ? "open" : ""}">
-              <label>Conductor</label>
-              <select data-action="filter-driver">
-                <option value="">Todos</option>
-                ${DRIVERS.map(d => `<option value="${d.name}" ${state.filterDriver === d.name ? "selected" : ""}>${d.name}</option>`).join("")}
-              </select>
-              <label>Método de pago</label>
-              <select data-action="filter-pay">
-                <option value="">Todos</option>
-                <option value="tarjeta" ${state.filterPay === "tarjeta" ? "selected" : ""}>Tarjeta</option>
-                <option value="efectivo" ${state.filterPay === "efectivo" ? "selected" : ""}>Efectivo</option>
-                <option value="crédito" ${state.filterPay === "crédito" ? "selected" : ""}>Crédito B2B</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <div class="content">
           <div class="panel-list">
-            ${filtered.length === 0 ? `<div style="padding:40px 16px;text-align:center;color:var(--gray-600)">No hay pedidos en esta categoría</div>` : ""}
-            ${filtered.map(o => renderOrderItem(o)).join("")}
+            <div class="toolbar">
+              <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input placeholder="Buscar pedido, cliente..." value="${state.searchQuery}" data-action="search" />
+              </div>
+              <div class="toolbar-row">
+                <select class="sort-select" data-action="sort-select">
+                  <option value="date_desc" ${state.sortBy === "date_desc" ? "selected" : ""}>Recientes</option>
+                  <option value="date_asc" ${state.sortBy === "date_asc" ? "selected" : ""}>Antiguos</option>
+                  <option value="amount_desc" ${state.sortBy === "amount_desc" ? "selected" : ""}>Monto</option>
+                  <option value="client" ${state.sortBy === "client" ? "selected" : ""}>Cliente</option>
+                </select>
+                <div class="filter-wrap">
+                  <button class="toolbar-btn ${state.showFilters ? "active" : ""}" data-action="toggle-filters">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  </button>
+                  <div class="filter-dropdown ${state.showFilters ? "open" : ""}">
+                    <label>Conductor</label>
+                    <select data-action="filter-driver">
+                      <option value="">Todos</option>
+                      ${DRIVERS.map(d => `<option value="${d.name}" ${state.filterDriver === d.name ? "selected" : ""}>${d.name}</option>`).join("")}
+                    </select>
+                    <label>Método de pago</label>
+                    <select data-action="filter-pay">
+                      <option value="">Todos</option>
+                      <option value="tarjeta" ${state.filterPay === "tarjeta" ? "selected" : ""}>Tarjeta</option>
+                      <option value="efectivo" ${state.filterPay === "efectivo" ? "selected" : ""}>Efectivo</option>
+                      <option value="crédito" ${state.filterPay === "crédito" ? "selected" : ""}>Crédito B2B</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="order-list">
+              ${filtered.length === 0 ? `<div style="padding:40px 16px;text-align:center;color:var(--gray-600)">No hay pedidos en esta categoría</div>` : ""}
+              ${filtered.map(o => renderOrderItem(o)).join("")}
+            </div>
           </div>
           <div class="panel-detail">
             ${state.selectedOrder !== null ? renderDetail(orders[state.selectedOrder]) : renderEmpty()}
           </div>
         </div>
+      </div>
       </div>
     </div>`;
 }
@@ -425,8 +466,12 @@ document.addEventListener("click", (e) => {
   if (a === "logout") { state.screen = "login"; state.selectedOrder = null; render(); }
   if (a === "select") { state.selectedOrder = parseInt(t.dataset.idx); render(); }
   if (a === "category") { state.category = t.dataset.key; state.selectedOrder = null; render(); }
-  if (a === "sort") { state.sortBy = t.dataset.sort; render(); }
   if (a === "toggle-filters") { state.showFilters = !state.showFilters; render(); }
+  if (a === "toggle-sidebar") { state.sidebarOpen = !state.sidebarOpen; render(); }
+  if (a === "toggle-flotilla") { state.flotillaOpen = !state.flotillaOpen; render(); }
+  if (a === "toggle-clientes") { state.clientesOpen = !state.clientesOpen; render(); }
+  if (a === "toggle-metricas") { state.metricasOpen = !state.metricasOpen; render(); }
+  if (a === "toggle-tickets") { state.ticketsOpen = !state.ticketsOpen; render(); }
 
   if (a === "assign-driver") {
     const idx = parseInt(t.dataset.idx);
@@ -450,6 +495,10 @@ document.addEventListener("input", (e) => {
 });
 
 document.addEventListener("change", (e) => {
+  if (e.target.closest("[data-action='sort-select']")) {
+    state.sortBy = e.target.value;
+    render();
+  }
   if (e.target.closest("[data-action='filter-driver']")) {
     state.filterDriver = e.target.value;
     state.selectedOrder = null;

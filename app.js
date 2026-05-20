@@ -11,8 +11,8 @@ const mockData = {
     trips: 342,
   },
   orders: [
-    { id: "#4820", type: "monto", requested: 500, litersReal: 38.2, totalFinal: 477.5, date: "18 may 2026", status: "Completado", agent: "Julio Ramírez", plate: "CDMX-482-A", pay: "Tarjeta (pre-auth)", address: "Av. Masaryk 111, Polanco", tank: "Estacionario 300L" },
-    { id: "#4815", type: "litros", requested: 50, litersReal: 50, totalFinal: 625, date: "10 may 2026", status: "Completado", agent: "Carlos Méndez", plate: "CDMX-319-B", pay: "Efectivo", address: "Av. Amsterdam 75, Condesa", tank: "Cilindro 45kg" },
+    { id: "#4820", type: "monto", requested: 500, litersReal: 38.2, totalFinal: 477.5, date: "18 may 2026", status: "Completado", agent: "Julio Ramírez", plate: "CDMX-482-A", pay: "Tarjeta (pre-auth)", address: "Av. Masaryk 111, Polanco", tank: "Estacionario 300L", deliveryNotes: "Portón negro, tocar timbre 2 veces", generalNotes: "Recibe mi esposa María", agentComment: "Recarga sin novedad. Tanque en buen estado.", meterPhoto: true, invoiceAvailable: true, startTime: "10:32 AM", endTime: "10:48 AM", inspectionResult: "Aprobado" },
+    { id: "#4815", type: "litros", requested: 50, litersReal: 50, totalFinal: 625, date: "10 may 2026", status: "Completado", agent: "Carlos Méndez", plate: "CDMX-319-B", pay: "Efectivo", address: "Av. Amsterdam 75, Condesa", tank: "Cilindro 45kg", deliveryNotes: "Casa azul esquina", generalNotes: "", agentComment: "Cliente recibió conforme. Pago en efectivo completo.", meterPhoto: true, invoiceAvailable: false, startTime: "14:10 PM", endTime: "14:22 PM", inspectionResult: "Aprobado" },
   ],
   user: {
     name: "María González",
@@ -433,9 +433,83 @@ function renderOrders() {
             <div class="detail-row"><span>Dirección</span><strong>${o.address}</strong></div>
             <div class="detail-row"><span>Tanque</span><strong>${o.tank}</strong></div>
           </div>
-          <button class="btn btn-secondary btn-sm" data-action="toggle-detail" data-idx="${idx}">Ver detalle</button>
+          <div class="order-actions">
+            <button class="order-action-btn" data-action="toggle-detail" data-idx="${idx}">📋 Resumen</button>
+            <button class="order-action-btn primary" data-action="view-order" data-idx="${idx}">📄 Ver pedido</button>
+          </div>
         </div>
       `).join("")}
+
+      <div class="support-fab" data-action="toggle-help-menu-orders">
+        <span>💬</span>
+      </div>
+      <div class="help-overlay" id="helpOverlayOrders" style="display:none">
+        <div class="help-backdrop" data-action="toggle-help-menu-orders"></div>
+        <div class="help-menu">
+          <div class="help-menu-option" data-action="support-call"><span class="help-menu-icon">📞</span><span>Llamar a soporte</span></div>
+          <div class="help-menu-option" data-action="go-support"><span class="help-menu-icon">🎫</span><span>Generar ticket</span></div>
+          <div class="help-menu-option" data-action="go-faq"><span class="help-menu-icon">❓</span><span>Preguntas frecuentes</span></div>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderOrderDetail() {
+  showChrome();
+  const o = mockData.orders[state.viewOrderIdx];
+  if (!o) { state.screen = "orders"; render(); return; }
+
+  app.innerHTML = `
+    <section>
+      <h2 class="screen-title">Pedido ${o.id}</h2>
+      <p class="screen-subtitle">${o.date} · ${o.status}</p>
+
+      <div class="card">
+        <div class="card-header">📋 Resumen del servicio</div>
+        <div class="detail-row"><span>Solicitado</span><strong>${o.type === "monto" ? mxn(o.requested) : o.requested + " L"} (estimado)</strong></div>
+        <div class="detail-row"><span>Litros reales despachados</span><strong>${o.litersReal} L</strong></div>
+        <div class="detail-row"><span>Cobro final</span><strong>${mxn(o.totalFinal)}</strong></div>
+        <div class="detail-row"><span>Método de pago</span><strong>${o.pay}</strong></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">🚛 Operador</div>
+        <div class="detail-row"><span>Nombre</span><strong>${o.agent}</strong></div>
+        <div class="detail-row"><span>Placa</span><strong>${o.plate}</strong></div>
+        <div class="detail-row"><span>Hora inicio</span><strong>${o.startTime}</strong></div>
+        <div class="detail-row"><span>Hora fin</span><strong>${o.endTime}</strong></div>
+        <div class="detail-row"><span>Inspección</span><strong>${o.inspectionResult}</strong></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">📍 Entrega</div>
+        <div class="detail-row"><span>Dirección</span><strong>${o.address}</strong></div>
+        <div class="detail-row"><span>Tanque</span><strong>${o.tank}</strong></div>
+        ${o.deliveryNotes ? `<div class="detail-row"><span>Notas de llegada</span><strong>${o.deliveryNotes}</strong></div>` : ""}
+        ${o.generalNotes ? `<div class="detail-row"><span>Notas del pedido</span><strong>${o.generalNotes}</strong></div>` : ""}
+      </div>
+
+      <div class="card">
+        <div class="card-header">💬 Comentario del operador</div>
+        <p class="agent-comment">${o.agentComment || "Sin comentarios"}</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">📸 Evidencia del medidor</div>
+        ${o.meterPhoto ? `
+          <div class="proof-placeholder">[ Foto del medidor — ${o.litersReal}L ]</div>
+        ` : `<p class="proof-note">No hay foto disponible</p>`}
+      </div>
+
+      <div class="card">
+        <div class="card-header">🧾 Factura / Comprobante</div>
+        ${o.invoiceAvailable ? `
+          <button class="btn btn-secondary btn-sm" data-action="download-invoice">📄 Descargar comprobante PDF</button>
+        ` : `<p class="proof-note">Comprobante no disponible para este pedido</p>`}
+      </div>
+
+      <div style="height:12px"></div>
+      <button class="btn btn-secondary" data-action="back-orders">← Volver al historial</button>
     </section>`;
 }
 
@@ -576,10 +650,20 @@ function renderTopup() {
 
 function renderSupport() {
   showChrome();
+  const fromOrders = state._supportFrom === "orders";
+
   app.innerHTML = `
     <section>
       <h2 class="screen-title">Generar ticket de soporte</h2>
-      <p class="screen-subtitle">Pedido #4821 · ${trackingSteps[state.orderStatus].label}</p>
+      ${!fromOrders ? `<p class="screen-subtitle">Pedido #4821 · ${trackingSteps[state.orderStatus].label}</p>` : `<p class="screen-subtitle">Selecciona el pedido relacionado</p>`}
+
+      ${fromOrders ? `
+        <label>Pedido relacionado</label>
+        <select class="input" id="ticketOrder">
+          <option value="">Selecciona un pedido...</option>
+          ${mockData.orders.map(o => `<option value="${o.id}">${o.id} — ${o.date} — ${o.litersReal}L (${mxn(o.totalFinal)})</option>`).join("")}
+        </select>
+      ` : ""}
 
       <label>Motivo</label>
       <select class="input" id="ticketReason">
@@ -662,6 +746,7 @@ function render() {
     tracking: renderTracking,
     delivered: renderDelivered,
     orders: renderOrders,
+    orderDetail: renderOrderDetail,
     profile: renderProfile,
     editOrder: renderEditOrder,
     topup: renderTopup,
@@ -727,7 +812,7 @@ document.addEventListener("click", (e) => {
   }
 
   if (a === "edit-order") { state.screen = "editOrder"; render(); }
-  if (a === "back-tracking") { state.screen = "tracking"; render(); }
+  if (a === "back-tracking") { state.screen = state._supportFrom || "tracking"; render(); }
 
   if (a === "save-edit") {
     const amt = document.getElementById("editAmount");
@@ -761,13 +846,17 @@ document.addEventListener("click", (e) => {
     }
   }
 
-  if (a === "go-support") { state.screen = "support"; render(); }
-  if (a === "go-faq") { state.screen = "faq"; render(); }
+  if (a === "go-support") { state._supportFrom = state.screen; state.screen = "support"; render(); }
+  if (a === "go-faq") { state._supportFrom = state.screen; state.screen = "faq"; render(); }
   if (a === "support-call") { alert("📞 Llamando a soporte Corpoilgas...\n01-800-GAS-CORP"); }
   if (a === "support-ticket") { alert("🎫 Ticket #TK-8821 generado.\nTe contactaremos en menos de 30 minutos."); state.screen = "tracking"; render(); }
   if (a === "support-chat") { alert("💬 Conectando con un agente...\nTiempo de espera: ~2 min"); }
   if (a === "toggle-help-menu") {
     const ov = document.getElementById("helpOverlay");
+    if (ov) ov.style.display = ov.style.display === "none" ? "flex" : "none";
+  }
+  if (a === "toggle-help-menu-orders") {
+    const ov = document.getElementById("helpOverlayOrders");
     if (ov) ov.style.display = ov.style.display === "none" ? "flex" : "none";
   }
   if (a === "submit-ticket") {
@@ -794,6 +883,13 @@ document.addEventListener("click", (e) => {
     const d = document.getElementById("detail-" + t.dataset.idx);
     if (d) d.classList.toggle("open");
   }
+
+  if (a === "view-order") {
+    state.viewOrderIdx = parseInt(t.dataset.idx);
+    state.screen = "orderDetail"; render();
+  }
+  if (a === "back-orders") { state.screen = "orders"; state.activeTab = "orders"; updateNav(); render(); }
+  if (a === "download-invoice") { alert("📄 Descargando comprobante PDF..."); }
 
   if (a === "logout") { state.screen = "login"; state.authView = "login"; render(); }
 });
