@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Corpoilgas — Repartidor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="mobile-shell">
+      <header class="app-header">
+        <img src="../assets/Logo.png" alt="Corpoilgas" class="header-logo" />
+        <span class="badge">REPARTIDOR</span>
+      </header>
+
+      <main id="app"></main>
+
+      <footer class="bottom-nav" id="bottomNav">
+        <button class="nav-btn active" data-tab="orders">
+          <span class="nav-icon">📋</span><span>Órdenes</span>
+        </button>
+        <button class="nav-btn" data-tab="route">
+          <span class="nav-icon">🗺️</span><span>Ruta</span>
+        </button>
+        <button class="nav-btn" data-tab="stats">
+          <span class="nav-icon">📊</span><span>Mi día</span>
+        </button>
+        <button class="nav-btn" data-tab="profile">
+          <span class="nav-icon">👤</span><span>Perfil</span>
+        </button>
+      </footer>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
